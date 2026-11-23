@@ -1,0 +1,167 @@
+{% extends "visitas/base.html" %}
+{% block titulo %}Modelo{% endblock %}
+
+{% block contenido %}
+<h1>Modelo Random Forest</h1>
+<p class="subtitulo">Cómo se entrenó, cuánto se equivoca y qué variables usa más. Son los mismos resultados del notebook de Colab.</p>
+
+<section class="tarjetas">
+  <article class="tarjeta indicador">
+    <span class="indicador-etiqueta">Error por hora (MAE)</span>
+    <span class="indicador-valor">{{ filas.0.MAE|floatformat:"-3" }}</span>
+    <span class="indicador-nota">visitas de diferencia por hora y piso</span>
+  </article>
+  <article class="tarjeta indicador">
+    <span class="indicador-etiqueta">Error por día (MAE)</span>
+    <span class="indicador-valor">{{ filas.1.MAE|floatformat:"-3" }}</span>
+    <span class="indicador-nota">visitas de diferencia por día y piso</span>
+  </article>
+  <article class="tarjeta indicador">
+    <span class="indicador-etiqueta">Ajuste por día (R²)</span>
+    <span class="indicador-valor">{{ filas.1.R2|floatformat:"-3" }}</span>
+    <span class="indicador-nota">más cerca de 1 es mejor</span>
+  </article>
+</section>
+
+<section class="tarjeta" style="margin-bottom:1rem">
+  <h2>Separación del histórico</h2>
+  <p style="margin:0 0 .6rem">
+    Se usaron <strong>{{ corte.total_dias }} días</strong> ({{ evaluacion.desde }} al {{ evaluacion.hasta }}).
+    El modelo aprende con los primeros <strong>{{ corte.dias_entrenamiento }} días</strong>
+    (hasta el {{ corte.entrenamiento_hasta|date:"d/m/Y" }}) y se prueba con los últimos
+    <strong>{{ corte.dias_prueba }} días</strong> (desde el {{ corte.desde|date:"d/m/Y" }}),
+    que no vio al entrenar.
+  </p>
+  <div style="display:flex;gap:4px;font-size:.85rem;font-weight:600;text-align:center" role="img"
+       aria-label="{{ corte.dias_entrenamiento }} días de entrenamiento y {{ corte.dias_prueba }} de prueba">
+    <div style="flex: {{ corte.dias_entrenamiento }};background:#1d4f91;color:#fff;padding:.5rem;border-radius:6px">Entrenamiento · {{ corte.dias_entrenamiento }} días</div>
+    <div style="flex: {{ corte.dias_prueba }};background:#c2410c;color:#fff;padding:.5rem;border-radius:6px;white-space:nowrap">Prueba · {{ corte.dias_prueba }}</div>
+  </div>
+  </section>
+
+<section class="tarjeta tabla-contenedor" style="margin-bottom:1rem">
+  <table class="tabla">
+    <thead>
+      <tr>
+        <th>Modelo</th>
+        <th class="num">MAE</th>
+        <th class="num">RMSE</th>
+        <th class="num">R²</th>
+        <th class="num">MAE línea base</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in filas %}
+      <tr>
+        <td>{{ f.nombre }}</td>
+        <td class="num">{{ f.MAE|floatformat:"-3" }}</td>
+        <td class="num">{{ f.RMSE|floatformat:"-3" }}</td>
+        <td class="num">{{ f.R2|floatformat:"-3" }}</td>
+        <td class="num">{{ f.MAE_base|floatformat:"-3" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+<p class="nota" style="margin-top:0;margin-bottom:1.25rem">
+  <strong>MAE:</strong> error promedio en número de visitas. <strong>RMSE:</strong> igual, pero castiga más los errores grandes.
+  <strong>R²:</strong> qué tanto se ajustan las estimaciones a lo observado. En MAE y RMSE, menos es mejor.
+  La <strong>línea base</strong> estima con el promedio histórico por piso, hora y día de la semana.
+  {% if base_mejor %}
+    <strong>En esta prueba la línea base se equivocó un poco menos que Random Forest</strong> en los dos casos,
+    así que el modelo es un prototipo funcional que todavía se puede mejorar.
+  {% endif %}
+</p>
+
+<section class="dos-columnas" style="grid-template-columns:repeat(auto-fit,minmax(420px,1fr))">
+  <article class="tarjeta" style="grid-column: 1 / -1">
+    <h2>Visitas observadas y estimadas · toda la FIEI (modelo por día)</h2>
+    <div class="grafico grafico-alto"><canvas id="grafico-serie" role="img" aria-label="Visitas observadas y estimadas en los días de prueba"></canvas></div>
+    <p class="nota">Son los {{ corte.dias_prueba }} días de prueba. Los valles corresponden a sábados y domingos.</p>
+  </article>
+
+  <article class="tarjeta">
+    <h2>Importancia de variables · modelo por hora</h2>
+    <div class="grafico"><canvas id="grafico-imp-hora" role="img" aria-label="Importancia de variables del modelo por hora"></canvas></div>
+    <table class="tabla tabla-compacta">
+      <tbody>{% for f in importancias.HORA %}<tr><td>{{ f.variable }}</td><td class="num">{{ f.porcentaje|floatformat:1 }} %</td></tr>{% endfor %}</tbody>
+    </table>
+  </article>
+  <article class="tarjeta">
+    <h2>Importancia de variables · modelo por día</h2>
+    <div class="grafico"><canvas id="grafico-imp-dia" role="img" aria-label="Importancia de variables del modelo por día"></canvas></div>
+    <table class="tabla tabla-compacta">
+      <tbody>{% for f in importancias.DIA %}<tr><td>{{ f.variable }}</td><td class="num">{{ f.porcentaje|floatformat:1 }} %</td></tr>{% endfor %}</tbody>
+    </table>
+  </article>
+</section>
+<p class="nota">
+  La importancia muestra qué variables usa más el modelo al construir sus árboles; no demuestra causalidad.
+  En el modelo por hora destaca la hora del día, y en el diario destacan el piso y el día de la semana.
+  Calculado con {{ evaluacion.visitas_usadas }} visitas; se actualiza con
+  <code>python manage.py entrenar_modelos --evaluar</code>.
+</p>
+
+{{ serie|json_script:"datos-serie" }}
+{{ importancias|json_script:"datos-importancias" }}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    const AZUL = '#1d4f91', NARANJA = '#c2410c', TEXTO = '#475569', REJILLA = '#e2e8f0';
+
+    // Observado vs estimado (dos líneas; la estimada va punteada)
+    const s = JSON.parse(document.getElementById('datos-serie').textContent);
+    new Chart(document.getElementById('grafico-serie'), {
+      type: 'line',
+      data: {
+        labels: s.fechas,
+        datasets: [
+          { label: 'Visitas observadas', data: s.observado, borderColor: AZUL, backgroundColor: AZUL,
+            borderWidth: 2, pointRadius: 2, tension: 0.1 },
+          { label: 'Estimación Random Forest', data: s.prediccion, borderColor: NARANJA, backgroundColor: NARANJA,
+            borderWidth: 2, borderDash: [6, 4], pointRadius: 2, tension: 0.1 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { position: 'bottom', labels: { color: TEXTO } } },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: TEXTO, maxRotation: 60 } },
+          y: { beginAtZero: true, grid: { color: REJILLA }, ticks: { color: TEXTO },
+               title: { display: true, text: 'Visitas por día', color: TEXTO } }
+        }
+      }
+    });
+
+    // Importancia de variables (barras horizontales, ordenadas de mayor a menor)
+    const imp = JSON.parse(document.getElementById('datos-importancias').textContent);
+    function importancia(id, filas) {
+      new Chart(document.getElementById(id), {
+        type: 'bar',
+        data: {
+          labels: filas.map(function (f) { return f.variable; }),
+          datasets: [{ data: filas.map(function (f) { return f.porcentaje; }),
+                       backgroundColor: AZUL, borderRadius: 4 }]
+        },
+        options: {
+          indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: function (c) { return c.parsed.x + ' %'; } } }
+          },
+          scales: {
+            x: { beginAtZero: true, grid: { color: REJILLA },
+                 ticks: { color: TEXTO, callback: function (v) { return v + ' %'; } } },
+            y: { grid: { display: false }, ticks: { color: TEXTO } }
+          }
+        }
+      });
+    }
+    importancia('grafico-imp-hora', imp.HORA);
+    importancia('grafico-imp-dia', imp.DIA);
+  })();
+</script>
+{% endblock %}

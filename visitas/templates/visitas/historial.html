@@ -1,0 +1,60 @@
+{% extends "visitas/base.html" %}
+{% block titulo %}Historial{% endblock %}
+
+{% block contenido %}
+<h1>Historial de visitas</h1>
+<p class="subtitulo">Consulta los registros guardados y filtra por piso.</p>
+
+<form method="get" class="tarjeta filtro">
+  <label for="piso">Piso</label>
+  <select name="piso" id="piso">
+    <option value="">Todos</option>
+    {% for p in pisos %}
+      <option value="{{ p }}" {% if piso == p|stringformat:"s" %}selected{% endif %}>Piso {{ p }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="boton">Filtrar</button>
+  {% if piso %}<a class="boton boton-secundario" href="{% url 'historial' %}">Quitar filtro</a>{% endif %}
+  <span class="filtro-total">{{ pagina.paginator.count }} registro{{ pagina.paginator.count|pluralize }}</span>
+</form>
+
+<div class="tarjeta tabla-contenedor">
+  <table class="tabla">
+    <thead>
+      <tr>
+        <th class="num">N.º</th><th>Ingreso</th><th>Salida</th><th>Piso</th>
+        <th>Destino</th><th>Tipo</th><th>Motivo</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for v in pagina %}
+      <tr>
+        <td class="num">{{ v.id }}</td>
+        <td>{{ v.ingreso|date:"d/m/Y H:i" }}</td>
+        <td>{{ v.salida|date:"d/m/Y H:i"|default:"—" }}</td>
+        <td>Piso {{ v.piso }}</td>
+        <td>{{ v.destino }}</td>
+        <td>{{ v.get_tipo_visitante_display }}</td>
+        <td>{{ v.motivo }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="vacio">No hay registros para este filtro.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if pagina.paginator.num_pages > 1 %}
+<nav class="paginacion" aria-label="Paginación">
+  {% if pagina.has_previous %}
+    <a href="?{% if piso %}piso={{ piso }}&amp;{% endif %}pagina=1">« Primera</a>
+    <a href="?{% if piso %}piso={{ piso }}&amp;{% endif %}pagina={{ pagina.previous_page_number }}">‹ Anterior</a>
+  {% endif %}
+  <span>Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+  {% if pagina.has_next %}
+    <a href="?{% if piso %}piso={{ piso }}&amp;{% endif %}pagina={{ pagina.next_page_number }}">Siguiente ›</a>
+    <a href="?{% if piso %}piso={{ piso }}&amp;{% endif %}pagina={{ pagina.paginator.num_pages }}">Última »</a>
+  {% endif %}
+</nav>
+{% endif %}
+{% endblock %}

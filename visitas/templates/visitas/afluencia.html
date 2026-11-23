@@ -1,0 +1,113 @@
+{% extends "visitas/base.html" %}
+{% block titulo %}Afluencia esperada{% endblock %}
+
+{% block contenido %}
+<h1>Consulta de afluencia</h1>
+<p class="subtitulo">Elige una fecha, un piso (o toda la facultad) y la modalidad. El modelo Random Forest estima cuántas visitas se esperan.</p>
+
+<form method="get" class="tarjeta formulario">
+  <div class="rejilla rejilla-3">
+    <div class="campo">
+      <label for="{{ form.fecha.id_for_label }}">{{ form.fecha.label }}</label>
+      {{ form.fecha }}
+      {% for e in form.fecha.errors %}<span class="error">{{ e }}</span>{% endfor %}
+    </div>
+    <div class="campo">
+      <label for="{{ form.piso.id_for_label }}">{{ form.piso.label }}</label>
+      {{ form.piso }}
+      {% for e in form.piso.errors %}<span class="error">{{ e }}</span>{% endfor %}
+    </div>
+    <div class="campo">
+      <label for="{{ form.modalidad.id_for_label }}">{{ form.modalidad.label }}</label>
+      {{ form.modalidad }}
+      {% for e in form.modalidad.errors %}<span class="error">{{ e }}</span>{% endfor %}
+    </div>
+  </div>
+  <div class="acciones"><button type="submit" class="boton">Consultar afluencia</button></div>
+</form>
+
+{% if modalidad %}
+  {% if modalidad == "DIA" %}
+  <section class="tarjetas">
+    <article class="tarjeta indicador destacado">
+      <span class="indicador-etiqueta">{{ principal.fecha|date:"d/m/Y" }} · {{ principal.nombre_dia }}</span>
+      <span class="indicador-valor">{{ principal.visitas|floatformat:"-1" }}</span>
+      <span class="indicador-nota">visitas estimadas para {{ alcance }}</span>
+    </article>
+    <article class="tarjeta indicador">
+      <span class="indicador-etiqueta">Mayor estimación</span>
+      <span class="indicador-valor">{{ mayor.visitas|floatformat:"-1" }}</span>
+      <span class="indicador-nota">{{ mayor.fecha|date:"d/m/Y" }} · {{ mayor.nombre_dia }}</span>
+    </article>
+    <article class="tarjeta indicador">
+      <span class="indicador-etiqueta">Menor estimación</span>
+      <span class="indicador-valor">{{ menor.visitas|floatformat:"-1" }}</span>
+      <span class="indicador-nota">{{ menor.fecha|date:"d/m/Y" }} · {{ menor.nombre_dia }}</span>
+    </article>
+  </section>
+  {% else %}
+  <section class="tarjetas">
+    <article class="tarjeta indicador destacado">
+      <span class="indicador-etiqueta">{{ fecha|date:"d/m/Y" }} · {{ dia_nombre }}</span>
+      <span class="indicador-valor">{{ total|floatformat:"-1" }}</span>
+      <span class="indicador-nota">visitas estimadas en el día para {{ alcance }}</span>
+    </article>
+    <article class="tarjeta indicador">
+      <span class="indicador-etiqueta">Franja de mayor afluencia</span>
+      <span class="indicador-valor">{{ pico.hora|stringformat:"02d" }}:00</span>
+      <span class="indicador-nota">{{ pico.visitas|floatformat:"-1" }} visitas estimadas</span>
+    </article>
+  </section>
+  {% endif %}
+
+  <section class="dos-columnas">
+    <article class="tarjeta">
+      <h2>{{ grafico.titulo }}</h2>
+      <div class="grafico"><canvas id="grafico-afluencia" role="img" aria-label="{{ grafico.titulo }}"></canvas></div>
+      {% if modalidad == "DIA" %}<p class="nota">Las barras grises corresponden a sábado y domingo.</p>{% endif %}
+    </article>
+
+    <article class="tarjeta">
+      <h2>Detalle</h2>
+      <div class="tabla-contenedor tabla-scroll">
+        <table class="tabla tabla-compacta">
+          {% if modalidad == "DIA" %}
+          <thead><tr><th>Fecha</th><th>Día</th><th class="num">Visitas estimadas</th></tr></thead>
+          <tbody>
+            {% for f in filas %}
+            <tr class="{% if f.fin_de_semana %}fila-suave{% endif %}">
+              <td>{{ f.fecha|date:"d/m/Y" }}</td><td>{{ f.nombre_dia|capfirst }}</td>
+              <td class="num">{{ f.visitas|floatformat:"-1" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          {% else %}
+          <thead><tr><th>Franja</th><th class="num">Visitas estimadas</th></tr></thead>
+          <tbody>
+            {% for f in filas %}
+            <tr><td>{{ f.rango }}</td><td class="num">{{ f.visitas|floatformat:"-1" }}</td></tr>
+            {% endfor %}
+          </tbody>
+          {% endif %}
+        </table>
+      </div>
+    </article>
+  </section>
+
+  <p class="nota">La estimación es una referencia para planificar la afluencia (pronóstico experimental con datos sintéticos).</p>
+  {{ grafico|json_script:"datos-afluencia" }}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if modalidad %}
+<script>
+  (function () {
+    const g = JSON.parse(document.getElementById('datos-afluencia').textContent);
+    FIEI.barras('grafico-afluencia', g.etiquetas, g.valores, {
+      etiquetaEje: 'Visitas estimadas', grises: g.fines
+    });
+  })();
+</script>
+{% endif %}
+{% endblock %}

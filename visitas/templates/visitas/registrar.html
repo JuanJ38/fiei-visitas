@@ -1,0 +1,84 @@
+{% extends "visitas/base.html" %}
+{% block titulo %}Registrar visitas{% endblock %}
+
+{% block contenido %}
+<h1>Registrar visitas</h1>
+<p class="subtitulo">Completa los datos. La información se guarda en la base SQLite.</p>
+
+<form method="post" class="tarjeta formulario" novalidate>
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="errores">{{ form.non_field_errors }}</div>{% endif %}
+
+  <div class="rejilla">
+    <div class="campo">
+      <label for="{{ form.piso.id_for_label }}">{{ form.piso.label }}</label>
+      {{ form.piso }}
+      {% for e in form.piso.errors %}<span class="error">{{ e }}</span>{% endfor %}
+    </div>
+    <div class="campo">
+      <label for="{{ form.destino.id_for_label }}">{{ form.destino.label }}</label>
+      {{ form.destino }}
+      {% for e in form.destino.errors %}<span class="error">{{ e }}</span>{% endfor %}
+    </div>
+    <div class="campo">
+      <label for="{{ form.ingreso.id_for_label }}">{{ form.ingreso.label }}</label>
+      {{ form.ingreso }}
+      {% for e in form.ingreso.errors %}<span class="error">{{ e }}</span>{% endfor %}
+    </div>
+    <div class="campo">
+      <label for="{{ form.tipo_visitante.id_for_label }}">{{ form.tipo_visitante.label }}</label>
+      {{ form.tipo_visitante }}
+      {% for e in form.tipo_visitante.errors %}<span class="error">{{ e }}</span>{% endfor %}
+    </div>
+    <div class="campo">
+      <label for="{{ form.motivo.id_for_label }}">{{ form.motivo.label }}</label>
+      {{ form.motivo }}
+      {% for e in form.motivo.errors %}<span class="error">{{ e }}</span>{% endfor %}
+    </div>
+    <div class="campo">
+      <label for="{{ form.cantidad.id_for_label }}">{{ form.cantidad.label }}</label>
+      {{ form.cantidad }}
+      {% for e in form.cantidad.errors %}<span class="error">{{ e }}</span>{% endfor %}
+      <span class="ayuda">Se guarda una visita por cada persona (máximo 50).</span>
+    </div>
+  </div>
+
+  <div class="acciones">
+    <button type="submit" class="boton">Guardar visita</button>
+    <a class="boton boton-secundario" href="{% url 'historial' %}">Ver historial</a>
+  </div>
+  <p class="nota">
+    Las visitas nuevas aparecen en el historial y en el Dashboard enseguida. El modelo de
+    predicción las toma en cuenta cuando se vuelve a entrenar
+    (<code>python manage.py entrenar_modelos</code>).
+  </p>
+</form>
+
+{{ destinos|json_script:"datos-destinos" }}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // El destino depende del piso elegido.
+  (function () {
+    const destinos = JSON.parse(document.getElementById('datos-destinos').textContent);
+    const piso = document.getElementById('{{ form.piso.id_for_label }}');
+    const destino = document.getElementById('{{ form.destino.id_for_label }}');
+    const elegido = destino.value;
+    function actualizar() {
+      const lista = destinos[piso.value] || [];
+      const previo = destino.value;
+      destino.innerHTML = '';
+      lista.forEach(function (d) {
+        const op = document.createElement('option');
+        op.value = d; op.textContent = d;
+        if (d === previo) op.selected = true;
+        destino.appendChild(op);
+      });
+    }
+    piso.addEventListener('change', actualizar);
+    actualizar();
+    if (elegido) { destino.value = elegido; }
+  })();
+</script>
+{% endblock %}

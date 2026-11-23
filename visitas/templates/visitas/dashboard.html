@@ -1,0 +1,71 @@
+{% extends "visitas/base.html" %}
+{% block titulo %}Dashboard{% endblock %}
+
+{% block contenido %}
+<h1>Panel principal</h1>
+<p class="subtitulo">Resumen del movimiento registrado en la facultad.</p>
+
+<section class="tarjetas">
+  <article class="tarjeta indicador">
+    <span class="indicador-etiqueta">Total de visitas</span>
+    <span class="indicador-valor">{{ total }}</span>
+    <span class="indicador-nota">registros en la base</span>
+  </article>
+  <article class="tarjeta indicador">
+    <span class="indicador-etiqueta">Pisos</span>
+    <span class="indicador-valor">{{ pisos|length }}</span>
+    <span class="indicador-nota">niveles de la facultad</span>
+  </article>
+  <article class="tarjeta indicador">
+    <span class="indicador-etiqueta">Días con histórico</span>
+    <span class="indicador-valor">{{ dias_con_datos }}</span>
+    <span class="indicador-nota">
+      {% if rango %}{{ rango.0 }} al {{ rango.1 }}{% else %}sin datos{% endif %}
+    </span>
+  </article>
+</section>
+
+{% if total %}
+<section class="dos-columnas">
+  <article class="tarjeta">
+    <h2>Distribución por piso</h2>
+    <div class="grafico"><canvas id="grafico-pisos" role="img" aria-label="Visitas por piso"></canvas></div>
+    <table class="tabla tabla-compacta">
+      <thead><tr><th>Piso</th><th class="num">Visitas</th><th class="num">Participación</th></tr></thead>
+      <tbody>
+        {% for p in pisos %}
+        <tr><td>Piso {{ p.piso }}</td><td class="num">{{ p.visitas }}</td><td class="num">{{ p.porcentaje|floatformat:2 }} %</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </article>
+
+  <article class="tarjeta">
+    <h2>Evolución diaria</h2>
+    <div class="grafico grafico-alto"><canvas id="grafico-diario" role="img" aria-label="Visitas por día"></canvas></div>
+    <p class="nota">Los fines de semana se ven como valles: hay menos visitas.</p>
+  </article>
+</section>
+
+{{ grafico_pisos|json_script:"datos-pisos" }}
+{{ grafico_diario|json_script:"datos-diario" }}
+{% else %}
+<div class="tarjeta vacio">
+  <p>Todavía no hay visitas. Carga los datos con <code>python manage.py cargar_datos</code>
+  o registra una visita desde la pestaña <a href="{% url 'registrar' %}">Registrar</a>.</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if total %}
+<script>
+  (function () {
+    const pisos = JSON.parse(document.getElementById('datos-pisos').textContent);
+    const diario = JSON.parse(document.getElementById('datos-diario').textContent);
+    FIEI.barras('grafico-pisos', pisos.etiquetas, pisos.valores, {etiquetaEje: 'Visitas'});
+    FIEI.linea('grafico-diario', diario.etiquetas, diario.valores, {etiquetaEje: 'Visitas por día'});
+  })();
+</script>
+{% endif %}
+{% endblock %}

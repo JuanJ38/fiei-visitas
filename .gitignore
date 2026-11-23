@@ -1,0 +1,9 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+staticfiles/
+.idea/
+.vscode/
+# OJO: db.sqlite3 y modelos/*.joblib SÍ se suben a GitHub a propósito,
+# para que el servidor tenga los datos y los modelos al clonar.

@@ -1,0 +1,51 @@
+{% load static %}<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}FIEI Visitas{% endblock %} · FIEI Visitas</title>
+  <link rel="stylesheet" href="{% static 'visitas/css/style.css' %}">
+</head>
+<body>
+  <header class="cabecera">
+    <div class="contenedor cabecera-interna">
+      <a class="marca" href="{% url 'dashboard' %}">
+        <span class="marca-logo" aria-hidden="true">FV</span>
+        <span>
+          <strong>FIEI Visitas</strong>
+          <small>Universidad Nacional Federico Villarreal</small>
+        </span>
+      </a>
+      <nav class="menu" aria-label="Principal">
+        {% with actual=request.resolver_match.url_name %}
+        <a href="{% url 'dashboard' %}" {% if actual == 'dashboard' %}class="activo" aria-current="page"{% endif %}>Dashboard</a>
+        <a href="{% url 'registrar' %}" {% if actual == 'registrar' %}class="activo" aria-current="page"{% endif %}>Registrar</a>
+        <a href="{% url 'historial' %}" {% if actual == 'historial' %}class="activo" aria-current="page"{% endif %}>Historial</a>
+        <a href="{% url 'afluencia' %}" {% if actual == 'afluencia' %}class="activo" aria-current="page"{% endif %}>Afluencia</a>
+        <a href="{% url 'modelo' %}" {% if actual == 'modelo' %}class="activo" aria-current="page"{% endif %}>Modelo</a>
+        {% endwith %}
+      </nav>
+    </div>
+  </header>
+
+  <main class="contenedor">
+    {% if messages %}
+      <div class="mensajes">
+        {% for m in messages %}<div class="mensaje {{ m.tags }}" role="status">{{ m }}</div>{% endfor %}
+      </div>
+    {% endif %}
+    {% block contenido %}{% endblock %}
+  </main>
+
+  <footer class="pie">
+    <div class="contenedor">
+      Proyecto académico · Ingeniería del Conocimiento · Datos sintéticos: las estimaciones
+      no representan el movimiento real de la FIEI.
+    </div>
+  </footer>
+
+  <script src="{% static 'visitas/js/chart.umd.min.js' %}"></script>
+  <script src="{% static 'visitas/js/app.js' %}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
