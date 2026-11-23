@@ -5,54 +5,75 @@
 <h1>Panel principal</h1>
 <p class="subtitulo">Resumen del movimiento registrado en la facultad.</p>
 
+{% if total %}
 <section class="tarjetas">
   <article class="tarjeta indicador">
     <span class="indicador-etiqueta">Total de visitas</span>
     <span class="indicador-valor">{{ total }}</span>
-    <span class="indicador-nota">registros en la base</span>
+    <span class="indicador-nota">{{ rango.0 }} al {{ rango.1 }}</span>
   </article>
   <article class="tarjeta indicador">
-    <span class="indicador-etiqueta">Pisos</span>
-    <span class="indicador-valor">{{ pisos|length }}</span>
-    <span class="indicador-nota">niveles de la facultad</span>
+    <span class="indicador-etiqueta">Piso más visitado</span>
+    <span class="indicador-valor">Piso {{ piso_top.piso }}</span>
+    <span class="indicador-nota">{{ piso_top.visitas }} visitas · {{ piso_top.porcentaje|floatformat:1 }} %</span>
   </article>
   <article class="tarjeta indicador">
-    <span class="indicador-etiqueta">Días con histórico</span>
-    <span class="indicador-valor">{{ dias_con_datos }}</span>
-    <span class="indicador-nota">
-      {% if rango %}{{ rango.0 }} al {{ rango.1 }}{% else %}sin datos{% endif %}
-    </span>
+    <span class="indicador-etiqueta">Hora con más ingresos</span>
+    <span class="indicador-valor">{{ hora_pico|stringformat:"02d" }}:00</span>
+    <span class="indicador-nota">según el historial</span>
+  </article>
+  <article class="tarjeta indicador">
+    <span class="indicador-etiqueta">Promedio por día</span>
+    <span class="indicador-valor">{{ promedio_dia }}</span>
+    <span class="indicador-nota">{{ dias_con_datos }} días con histórico</span>
   </article>
 </section>
 
-{% if total %}
-<section class="dos-columnas">
+<section class="dos-columnas" style="grid-template-columns:2fr 1fr">
   <article class="tarjeta">
-    <h2>Distribución por piso</h2>
-    <div class="grafico"><canvas id="grafico-pisos" role="img" aria-label="Visitas por piso"></canvas></div>
-    <table class="tabla tabla-compacta">
-      <thead><tr><th>Piso</th><th class="num">Visitas</th><th class="num">Participación</th></tr></thead>
-      <tbody>
-        {% for p in pisos %}
-        <tr><td>Piso {{ p.piso }}</td><td class="num">{{ p.visitas }}</td><td class="num">{{ p.porcentaje|floatformat:2 }} %</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </article>
-
-  <article class="tarjeta">
-    <h2>Evolución diaria</h2>
-    <div class="grafico grafico-alto"><canvas id="grafico-diario" role="img" aria-label="Visitas por día"></canvas></div>
+    <h2>Evolución diaria de visitas</h2>
+    <div class="grafico grafico-alto"><canvas id="g-diario" role="img" aria-label="Visitas por día"></canvas></div>
     <p class="nota">Los fines de semana se ven como valles: hay menos visitas.</p>
   </article>
+  <article class="tarjeta">
+    <h2>Visitas por piso</h2>
+    <div class="barras-piso">
+      {% for p in pisos %}
+      <div class="barra-piso">
+        <div class="linea"><span>Piso {{ p.piso }}</span><strong>{{ p.visitas }} · {{ p.porcentaje|floatformat:1 }} %</strong></div>
+        <div class="pista"><div class="relleno" style="width:{{ p.ancho }}%"></div></div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="grafico grafico-dona" style="margin-top:1rem"><canvas id="g-pisos" role="img" aria-label="Distribución por piso"></canvas></div>
+  </article>
 </section>
 
-{{ grafico_pisos|json_script:"datos-pisos" }}
-{{ grafico_diario|json_script:"datos-diario" }}
+<section class="tres-columnas">
+  <article class="tarjeta">
+    <h2>Promedio por día de la semana</h2>
+    <div class="grafico"><canvas id="g-semana" role="img" aria-label="Promedio de visitas por día de la semana"></canvas></div>
+  </article>
+  <article class="tarjeta">
+    <h2>Tipo de visitante</h2>
+    <div class="grafico"><canvas id="g-tipos" role="img" aria-label="Distribución por tipo de visitante"></canvas></div>
+  </article>
+  <article class="tarjeta">
+    <h2>Motivo de la visita</h2>
+    <div class="grafico"><canvas id="g-motivos" role="img" aria-label="Visitas por motivo"></canvas></div>
+  </article>
+</section>
+
+<section class="tarjeta">
+  <h2>Últimos 14 días</h2>
+  <div class="grafico"><canvas id="g-reciente" role="img" aria-label="Visitas de los últimos 14 días"></canvas></div>
+</section>
+
+{{ graficos|json_script:"datos-graficos" }}
 {% else %}
 <div class="tarjeta vacio">
   <p>Todavía no hay visitas. Carga los datos con <code>python manage.py cargar_datos</code>
-  o registra una visita desde la pestaña <a href="{% url 'registrar' %}">Registrar</a>.</p>
+  o registra una visita desde <a href="{% url 'registrar' %}">Registrar visitas</a>.</p>
 </div>
 {% endif %}
 {% endblock %}
@@ -61,10 +82,13 @@
 {% if total %}
 <script>
   (function () {
-    const pisos = JSON.parse(document.getElementById('datos-pisos').textContent);
-    const diario = JSON.parse(document.getElementById('datos-diario').textContent);
-    FIEI.barras('grafico-pisos', pisos.etiquetas, pisos.valores, {etiquetaEje: 'Visitas'});
-    FIEI.linea('grafico-diario', diario.etiquetas, diario.valores, {etiquetaEje: 'Visitas por día'});
+    const g = JSON.parse(document.getElementById('datos-graficos').textContent);
+    FIEI.linea('g-diario', g.diario.etiquetas, g.diario.valores, {etiquetaEje: 'Visitas por día'});
+    FIEI.dona('g-pisos', g.pisos.etiquetas, g.pisos.valores);
+    FIEI.barras('g-semana', g.semana.etiquetas, g.semana.valores, {etiquetaEje: 'Promedio de visitas'});
+    FIEI.dona('g-tipos', g.tipos.etiquetas, g.tipos.valores);
+    FIEI.horizontales('g-motivos', g.motivos.etiquetas, g.motivos.valores);
+    FIEI.barras('g-reciente', g.reciente.etiquetas.map(function (e) { return e.slice(0, 5); }), g.reciente.valores, {etiquetaEje: 'Visitas'});
   })();
 </script>
 {% endif %}

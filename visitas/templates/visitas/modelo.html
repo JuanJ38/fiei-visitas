@@ -34,8 +34,8 @@
   </p>
   <div style="display:flex;gap:4px;font-size:.85rem;font-weight:600;text-align:center" role="img"
        aria-label="{{ corte.dias_entrenamiento }} días de entrenamiento y {{ corte.dias_prueba }} de prueba">
-    <div style="flex: {{ corte.dias_entrenamiento }};background:#1d4f91;color:#fff;padding:.5rem;border-radius:6px">Entrenamiento · {{ corte.dias_entrenamiento }} días</div>
-    <div style="flex: {{ corte.dias_prueba }};background:#c2410c;color:#fff;padding:.5rem;border-radius:6px;white-space:nowrap">Prueba · {{ corte.dias_prueba }}</div>
+    <div style="flex: {{ corte.dias_entrenamiento }};background:#d4852a;color:#fff;padding:.5rem;border-radius:6px">Entrenamiento · {{ corte.dias_entrenamiento }} días</div>
+    <div style="flex: {{ corte.dias_prueba }};background:#6b3f0d;color:#fff;padding:.5rem;border-radius:6px;white-space:nowrap">Prueba · {{ corte.dias_prueba }}</div>
   </div>
   </section>
 
@@ -109,7 +109,7 @@
 {% block scripts %}
 <script>
   (function () {
-    const AZUL = '#1d4f91', NARANJA = '#c2410c', TEXTO = '#475569', REJILLA = '#e2e8f0';
+    const AZUL = '#d4852a', NARANJA = '#6b3f0d', TEXTO = '#7a6650', REJILLA = '#efe2c8';
 
     // Observado vs estimado (dos líneas; la estimada va punteada)
     const s = JSON.parse(document.getElementById('datos-serie').textContent);

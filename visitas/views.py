@@ -3,10 +3,10 @@ from datetime import date, timedelta
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models import Count
-from django.db.models.functions import TruncDate
+from django.db.models.functions import ExtractHour, TruncDate
 from django.shortcuts import redirect, render
 
-from visitas import ml
+from . import ml
 from .constants import DESTINOS, DIAS_SEMANA, PISOS
 from .forms import AfluenciaForm, RegistroForm
 from .models import Visita
@@ -18,20 +18,31 @@ FECHA_EJEMPLO = date(2026, 11, 18)
 # --------------------------------------------------------------------------
 # 1. Dashboard
 # --------------------------------------------------------------------------
+def _distribucion(campo, etiquetar=lambda x: x):
+    filas = Visita.objects.values(campo).annotate(n=Count("id")).order_by("-n")
+    return {
+        "etiquetas": [etiquetar(f[campo]) for f in filas],
+        "valores": [f["n"] for f in filas],
+    }
+
+
 def dashboard(request):
     total = Visita.objects.count()
     conteo = {
         fila["piso"]: fila["n"]
         for fila in Visita.objects.values("piso").annotate(n=Count("id"))
     }
+    mayor = max(conteo.values()) if conteo else 0
     pisos = [
         {
             "piso": p,
             "visitas": conteo.get(p, 0),
             "porcentaje": round(100 * conteo.get(p, 0) / total, 2) if total else 0,
+            "ancho": round(100 * conteo.get(p, 0) / mayor) if mayor else 0,
         }
         for p in PISOS
     ]
+    piso_top = max(pisos, key=lambda p: p["visitas"]) if total else None
 
     # Evolución diaria (los días sin visitas cuentan como 0, igual que el notebook)
     por_dia = {
@@ -40,24 +51,53 @@ def dashboard(request):
         .values("dia")
         .annotate(n=Count("id"))
     }
-    etiquetas, valores = [], []
+    etiquetas, valores, fechas = [], [], []
     if por_dia:
         dia, ultimo = min(por_dia), max(por_dia)
         while dia <= ultimo:
             etiquetas.append(dia.strftime("%d/%m/%Y"))
             valores.append(por_dia.get(dia, 0))
+            fechas.append(dia)
             dia += timedelta(days=1)
+
+    # Promedio de visitas por día de la semana
+    suma, cuenta = [0] * 7, [0] * 7
+    for f, v in zip(fechas, valores):
+        suma[f.weekday()] += v
+        cuenta[f.weekday()] += 1
+    semana = [round(suma[i] / cuenta[i], 1) if cuenta[i] else 0 for i in range(7)]
+
+    # Hora con más ingresos
+    por_hora = {
+        fila["h"]: fila["n"]
+        for fila in Visita.objects.annotate(h=ExtractHour("ingreso"))
+        .values("h")
+        .annotate(n=Count("id"))
+    }
+    hora_pico = max(por_hora, key=por_hora.get) if por_hora else None
 
     contexto = {
         "total": total,
         "pisos": pisos,
+        "piso_top": piso_top,
+        "hora_pico": hora_pico,
+        "promedio_dia": round(total / len(valores), 1) if valores else 0,
         "dias_con_datos": len(etiquetas),
         "rango": (etiquetas[0], etiquetas[-1]) if etiquetas else None,
-        "grafico_pisos": {
-            "etiquetas": [f"Piso {p['piso']}" for p in pisos],
-            "valores": [p["visitas"] for p in pisos],
+        "graficos": {
+            "pisos": {
+                "etiquetas": [f"Piso {p['piso']}" for p in pisos],
+                "valores": [p["visitas"] for p in pisos],
+            },
+            "diario": {"etiquetas": etiquetas, "valores": valores},
+            "reciente": {"etiquetas": etiquetas[-14:], "valores": valores[-14:]},
+            "semana": {
+                "etiquetas": [d[:3].capitalize() for d in DIAS_SEMANA],
+                "valores": semana,
+            },
+            "tipos": _distribucion("tipo_visitante", lambda t: t.capitalize()),
+            "motivos": _distribucion("motivo"),
         },
-        "grafico_diario": {"etiquetas": etiquetas, "valores": valores},
     }
     return render(request, "visitas/dashboard.html", contexto)
 
